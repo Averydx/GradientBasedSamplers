@@ -1,17 +1,16 @@
 import jax
 import jax.numpy as jnp
 
-from leapfrog import leapfrog
-from helpers import find_reasonable_epsilon
+from utilities.leapfrog import leapfrog
+from utilities.helpers import find_reasonable_epsilon
 from functools import partial
 
 
-@jax.jit
+
 def kinetic_energy(r, mass_matrix):
     return 1 / 2 * r @ jnp.linalg.pinv(mass_matrix) @ r.T
 
 
-@partial(jax.jit, static_argnums=(1,))
 def hmc_step(thetam, f, *, key, mass_matrix, L, epsilon):
     momenta_key, key = jax.random.split(key)
 
@@ -50,48 +49,50 @@ def hmc_step(thetam, f, *, key, mass_matrix, L, epsilon):
     return new_theta, new_logp
 
 
+def multi_chain_hmc(f,
+    M,
+    Madapt,
+    theta0,
+    key,
+    mass_matrix,
+    epsilon,
+    L,
+    num_chains):
+
+    keys = jax.random.split(key,num_chains)
+
+    return jax.vmap(lambda t,k: hmc(f,M,Madapt,t,k,mass_matrix,epsilon,L))(theta0,keys)
+
+
 def hmc(
     f,
     M,
     Madapt,
     theta0,
-    *,
-    num_chains=1,
-    key=jax.random.key(0),
-    mass_matrix=None,
-    epsilon=None,
-    L=10,
+    key,
+    mass_matrix,
+    epsilon,
+    L,
 ):
 
-    D = len(theta0)
-    samples = jnp.zeros((num_chains, M + Madapt, D))
-    logps = jnp.zeros((num_chains, M + Madapt))
-
-    logp0, grad0 = f(theta0)
-    logps = logps.at[0, 0].set(logp0)
-    samples = samples.at[0, 0, :].set(theta0)
-
-    if epsilon is None:
-        eps_key, key = jax.random.split(key)
-        epsilon = find_reasonable_epsilon(theta0, grad0, logp0, f, eps_key)
-
-    if mass_matrix is None:
-        mass_matrix = jnp.eye(D)
-
-
-    for m in range(1, M + Madapt):
-        print(f"Iteration: {m}", end="\r")
-        step_key, key = jax.random.split(key)
+    def one_step(state,_):
+        current_theta,current_key = state
+        step_key,next_key = jax.random.split(current_key)
 
         theta_new, logp_new = hmc_step(
-            samples[0, m - 1, :],
+            current_theta,
             f,
             key=step_key,
             mass_matrix=mass_matrix,
             L=L,
             epsilon=epsilon,
         )
-        samples = samples.at[0, m, :].set(theta_new)
-        logps = logps.at[0,m].set(logp_new)
 
-    return samples[:, Madapt:, :], logps[:, Madapt:]
+        return (theta_new, next_key), (theta_new, logp_new)
+
+    _, (samples, logps) = jax.lax.scan(
+        one_step,(theta0,key),
+        jnp.arange(0,M+Madapt)
+    )
+
+    return samples[Madapt:, :], logps[Madapt:]

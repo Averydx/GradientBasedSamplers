@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gradient_based_samplers"
+version = "0.1.0"
+dependencies = ["jax", "matplotlib"]
+
+[tool.setuptools]
+packages = ["algorithms", "utilities"]

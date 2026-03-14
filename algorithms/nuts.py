@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 
-from helpers import build_tree, stop_criterion, find_reasonable_epsilon
+from utilities.helpers import build_tree, stop_criterion, find_reasonable_epsilon
 
 
 def nuts(
@@ -12,11 +12,41 @@ def nuts(
     *,
     num_chains=1,
     delta=0.6,
-    max_depth = 5,
+    max_depth=5,
     key=jax.random.key(0),
     epsilon=None,
-    dual_averaging = False
+    dual_averaging=False,
 ):
+    """
+    The No U Turn Sampler. This is algorithm 6 in Hoffman and Gelman's original paper, 
+    utilizing the uniform sampling from C on the fly as well as the dual averaging algorithm.
+
+    Parameters
+    ----------
+    f : 
+        The log density, a function returning both the density and its gradient at the specified point. 
+    M : 
+        The number of sampling steps to perform after adaptation. 
+    Madapt : 
+        The number of adaptation steps to perform. If dual_averaging=True 
+        this is the period within which the dual averaging algorithm will run. 
+    theta0 : 
+        Initializer for theta. 
+    num_chains : 
+        The number of markov chains to run. Defaults to 1. 
+    delta : 
+        The target acceptance rate used in dual averaging. Defaults to 0.6. 
+    max_depth : 
+        The maximum tree depth before termination. 
+        Number of steps taken before termination on the order of 2^max_depth. 
+    key : 
+        JAX random key used in algorithm. 
+    epsilon : 
+        The step size initializer, if dual averaging is false this is the global step size. 
+    dual_averaging : 
+        Whether to use dual averaging. Defaults to false. 
+    """
+
     D = len(theta0)
     samples = jnp.zeros((num_chains, M + Madapt, D), dtype=jnp.float32)
     lnprob = jnp.zeros((num_chains, M + Madapt), dtype=jnp.float32)
@@ -34,13 +64,13 @@ def nuts(
         epsilon = find_reasonable_epsilon(theta0, grad, logp, f, init_epsilon_key)
 
     # Parameters for dual averaging
-    gamma = 0.05
+    gamma = 0.2
     t0 = 10
     kappa = 0.75
     mu = jnp.log(10.0 * epsilon)
 
     epsilonbar = 1.0 if dual_averaging else epsilon
-    Hbar = 0.0
+    Hbar = 1.0
 
     for m in range(1, M + Madapt):
         # print(f"Iteration: {m} w/ epsilon {epsilon}",end = '\r')
@@ -133,16 +163,17 @@ def nuts(
             j += 1
 
         alpha_avg = alpha / nalpha
-        eta = 1/(m + t0)
-        if (m <= Madapt) and dual_averaging: 
-            Hbar = (1. - eta) * Hbar + eta * (delta - alpha_avg)
-            epsilon = jnp.exp(mu - jnp.sqrt(m)/gamma * Hbar)
-            epsilonbar = jnp.exp((m**-kappa) * jnp.log(epsilon) + (1-m**-kappa) * jnp.log(epsilonbar))
-        else: 
+        eta = 1 / (m + t0)
+        if (m <= Madapt) and dual_averaging:
+            Hbar = (1.0 - eta) * Hbar + eta * (delta - alpha_avg)
+            epsilon = jnp.exp(mu - jnp.sqrt(m) / gamma * Hbar)
+            epsilonbar = jnp.exp(
+                (m**-kappa) * jnp.log(epsilon) + (1 - m**-kappa) * jnp.log(epsilonbar)
+            )
+        else:
             epsilon = epsilonbar
 
-        print(f"Iteration: {m}, tree depth: {j}",end = '\r')
-
+        print(f"Iteration: {m}, tree depth: {j}", end="\r")
 
     samples = samples[:, Madapt:, :]
     lnprob = lnprob[:, Madapt:]

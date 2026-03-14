@@ -1,27 +1,27 @@
 import jax.numpy as jnp
 import jax
-from leapfrog import leapfrog
+from utilities.leapfrog import leapfrog
 
 
 @jax.jit
 def stop_criterion(thetaminus, thetaplus, rminus, rplus) -> bool:
     """
-    Compute the stop condition in the main loop.
+    Compute the stop condition in the NUTS main loop.
     """
 
     dtheta = thetaplus - thetaminus
 
-    return (jnp.dot(dtheta, rminus.T) >= 0) & (jnp.dot(dtheta, rplus.T) >= 0)
+    return (jnp.dot(dtheta, rminus) >= 0) & (jnp.dot(dtheta, rplus) >= 0)
 
 def build_tree(theta, r, grad, logu, v, j, epsilon, f, joint0, key):
-    """The tree building recursion."""
+    """The tree building recursion in NUTS."""
 
     if j == 0:
         # Base case: single leapfrog step
         thetaprime, rprime, gradprime, logpprime = leapfrog(
             theta, r, grad, v * epsilon, f
         )
-        joint = logpprime - 0.5 * jnp.dot(rprime, rprime.T)
+        joint = logpprime - 0.5 * jnp.dot(rprime, rprime)
         # Check if the new point is in the slice
         nprime = int(logu < joint)
         # Check if the simulation is very inaccurate
@@ -150,39 +150,29 @@ def build_tree(theta, r, grad, logu, v, j, epsilon, f, joint0, key):
 
 def find_reasonable_epsilon(theta0, grad0, logp0, f,key):
     """ Heuristic for choosing an initial value of epsilon """
-    epsilon = 1.
+    epsilon = 0.1
     momenta_key,key = jax.random.split(key)
     r0 = jax.random.normal(momenta_key, len(theta0))
 
+    def log_joint(theta,r):
+        return f(theta)[0] - 1/2 * jnp.dot(r,r)
+
     # Figure out what direction we should be moving epsilon.
-    _, rprime, gradprime, logpprime = leapfrog(theta0, r0, grad0, epsilon, f)
-    # brutal! This trick make sure the step is not huge leading to infinite
-    # values of the likelihood. This could also help to make sure theta stays
-    # within the prior domain (if any)
-    k = 1.
-    while jnp.isinf(logpprime) or jnp.isinf(gradprime).any():
-        k *= 0.5
-        _, rprime, _, logpprime = leapfrog(theta0, r0, grad0, epsilon * k, f)
+    thetaprime, rprime, _, _ = leapfrog(theta0, r0, grad0, epsilon, f)
 
-    epsilon = 0.5 * k * epsilon
+    a = 2. * ((log_joint(thetaprime,rprime) - log_joint(theta0,r0)) > jnp.log(0.5)) - 1.
 
-    # acceptprob = np.exp(logpprime - logp0 - 0.5 * (np.dot(rprime, rprime.T) - np.dot(r0, r0.T)))
-    # a = 2. * float((acceptprob > 0.5)) - 1.
-    logacceptprob = logpprime-logp0-0.5*(jnp.dot(rprime, rprime)-jnp.dot(r0,r0))
-    a = 1. if logacceptprob > jnp.log(0.5) else -1.
-    # Keep moving epsilon in that direction until acceptprob crosses 0.5.
-    # while ( (acceptprob ** a) > (2. ** (-a))):
-    while a * logacceptprob > -a * jnp.log(2):
-        epsilon = epsilon * (2. ** a)
-        _, rprime, _, logpprime = leapfrog(theta0, r0, grad0, epsilon, f)
-        logacceptprob = logpprime-logp0-0.5*(jnp.dot(rprime, rprime)-jnp.dot(r0,r0))
+    while (log_joint(thetaprime,rprime) - log_joint(theta0,r0))**a > jnp.log(2**-a): 
+        epsilon = 2**a * epsilon
+        thetaprime,rprime,_,_ = leapfrog(theta0,r0,grad0,epsilon,f)
+
 
     print("find_reasonable_epsilon=", epsilon)
 
-    return epsilon
+    return max(0.1,epsilon)
 
-@jax.jit
 def next_pow_two(n):
+    """Find the next power of two < n."""
     def cond_fn(state): 
         i,n = state
         return i < n
@@ -206,9 +196,8 @@ def autocorrelation(chain):
 
     return acf
 
-
-# Automated windowing procedure following Sokal (1989)
 def auto_window(taus, c):
+    """Automated windowing procedure following Sokal (1989)"""
     indices = jnp.arange(taus.shape[0])[:,jnp.newaxis]
 
     m = indices < c * taus
@@ -220,6 +209,7 @@ def auto_window(taus, c):
     return jnp.where(is_always_true,taus.shape[0]-1,window_idxs)
 
 def autocorr_new(y, c=5.0):
+    """Compute the autocorrelation across markov chains."""
     num_chains,num_samples,num_dims = y.shape
 
     f = jnp.zeros((num_samples,num_dims))
@@ -233,20 +223,31 @@ def autocorr_new(y, c=5.0):
     return jnp.diag(taus[window])
 
 def effective_sample_size(chains):
+    """The effective sample size across the chains."""
     num_chains,num_samples,num_dim = chains.shape
 
     return num_samples/autocorr_new(chains)
 
 def cov_update(cov, mu, theta_val,iteration,burn_in):
 
-    '''Adaptive update step, geometric cooling g ensures ergodicity of the markov chain 
-    as the iteration count goes to infinity. '''
+    """Adaptive update step, geometric cooling g ensures ergodicity of the markov chain 
+    as the iteration count goes to infinity. 
+    
+    cov : 
+        The running covariance. 
+    mu : 
+        The running mean. 
+    iteration : 
+        The current iteration. 
+    burn_in : 
+        The number of burn_in iterations. 
+    """
 
     g = (iteration - burn_in + 1) ** (-0.4)
     mu = (1.0 - g) * mu + g * theta_val
     m_theta = theta_val - mu
  
-    r_cov = (1.0 - g) * cov + g * jnp.outer(m_theta,m_theta.T)
+    r_cov = (1.0 - g) * cov + g * jnp.outer(m_theta,m_theta)
 
     return mu,r_cov
 
