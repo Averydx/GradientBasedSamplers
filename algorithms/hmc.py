@@ -6,7 +6,6 @@ from utilities.helpers import find_reasonable_epsilon
 from functools import partial
 
 
-
 def kinetic_energy(r, mass_matrix):
     return 1 / 2 * r @ jnp.linalg.pinv(mass_matrix) @ r.T
 
@@ -24,13 +23,13 @@ def hmc_step(thetam, f, *, key, mass_matrix, L, epsilon):
 
     logtheta_hat0, gradtheta_hat0 = f(thetahat)
 
-    def step(x,carry):
+    def step(x, carry):
         thetahat, rhat, gradtheta_hat, _ = carry
         new_carry = leapfrog(thetahat, rhat, gradtheta_hat, epsilon, f)
         return new_carry
 
-    thetahat, rhat, _, _ = jax.lax.fori_loop(0,L,
-        step, (thetahat, rhat, gradtheta_hat0, logtheta_hat0)
+    thetahat, rhat, _, _ = jax.lax.fori_loop(
+        0, L, step, (thetahat, rhat, gradtheta_hat0, logtheta_hat0)
     )
 
     LL_old = f(thetam)[0]
@@ -49,19 +48,13 @@ def hmc_step(thetam, f, *, key, mass_matrix, L, epsilon):
     return new_theta, new_logp
 
 
-def multi_chain_hmc(f,
-    M,
-    Madapt,
-    theta0,
-    key,
-    mass_matrix,
-    epsilon,
-    L,
-    num_chains):
+def multi_chain_hmc(f, M, Madapt, theta0, key, mass_matrix, epsilon, L, num_chains):
 
-    keys = jax.random.split(key,num_chains)
+    keys = jax.random.split(key, num_chains)
 
-    return jax.vmap(lambda t,k: hmc(f,M,Madapt,t,k,mass_matrix,epsilon,L))(theta0,keys)
+    return jax.vmap(lambda t, k: hmc(f, M, Madapt, t, k, mass_matrix, epsilon, L))(
+        theta0, keys
+    )
 
 
 def hmc(
@@ -75,9 +68,9 @@ def hmc(
     L,
 ):
 
-    def one_step(state,_):
-        current_theta,current_key = state
-        step_key,next_key = jax.random.split(current_key)
+    def one_step(state, _):
+        current_theta, current_key = state
+        step_key, next_key = jax.random.split(current_key)
 
         theta_new, logp_new = hmc_step(
             current_theta,
@@ -91,8 +84,7 @@ def hmc(
         return (theta_new, next_key), (theta_new, logp_new)
 
     _, (samples, logps) = jax.lax.scan(
-        one_step,(theta0,key),
-        jnp.arange(0,M+Madapt)
+        one_step, (theta0, key), jnp.arange(0, M + Madapt)
     )
 
     return samples[Madapt:, :], logps[Madapt:]

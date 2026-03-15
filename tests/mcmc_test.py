@@ -15,9 +15,9 @@ from utilities.test_distributions import neals_funnel
 log_prob = neals_funnel
 
 D = 20
-M = 1000
+M = 10_000
 Madapt = 100
-num_chains = 100
+num_chains = 10
 key = jax.random.key(0)
 init_key, key = jax.random.split(key)
 

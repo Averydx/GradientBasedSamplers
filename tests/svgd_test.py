@@ -29,5 +29,6 @@ t0 = perf_counter()
 particles = svgd(log_prob,RBF_Kernel,num_particles,iterations,step_size,svgd_key,D)
 t1 = perf_counter()
 print(f"Runtime: {t1 - t0} seconds")
+
 plt.scatter(particles[:, 0], particles[:, 1],s=0.1)
 plt.show()

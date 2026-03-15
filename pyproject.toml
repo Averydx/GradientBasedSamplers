@@ -2,10 +2,14 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[[tool.uv.index]]
+url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
+
 [project]
 name = "gradient_based_samplers"
 version = "0.1.0"
-dependencies = ["jax", "matplotlib"]
+dependencies = ["jax[cpu]", "matplotlib","diffrax"]
 
 [tool.setuptools]
 packages = ["algorithms", "utilities"]
+

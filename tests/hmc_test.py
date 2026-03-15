@@ -17,9 +17,9 @@ log_prob = neals_funnel
 func = jax.jit(jax.value_and_grad(log_prob))
 
 D = 20
-M = 100_000
-Madapt = 100
-num_chains = 100
+M = 10_000
+Madapt = 1000
+num_chains = 10
 key = jax.random.key(0)
 init_key, key = jax.random.split(key)
 
