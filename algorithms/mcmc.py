@@ -5,6 +5,8 @@ from utilities.helpers import cov_update
 from functools import partial
 
 def mcmc_step(theta_prev, f, key, cov_matrix):
+    """Performs a single step of MCMC"""
+
     prop_key, key = jax.random.split(key)
     theta_prop = jax.random.multivariate_normal(
         prop_key, theta_prev, (2.38**2 / len(theta_prev)) * cov_matrix
@@ -33,6 +35,32 @@ def multi_chain_mcmc(
     cov_matrix,
     num_chains):
 
+    """
+
+    Parallelizes the MCMC sampler across multiple chains. 
+
+    Parameters : 
+        f : 
+            The log-density and its gradient. 
+        M : 
+            The number of post-adaptation iterations. 
+        Madapt : 
+            The number of adaptation iterations. 
+        theta0 : 
+            The initial state of the chain. 
+        adaptive : 
+            Boolean flag to enable covariance estimation. 
+        key : 
+            The jax random key to use in simulation.
+        cov_matrix : 
+            The base covariance matrix to use in sampling. 
+        num_chains : 
+            The number of parallel chains to use in sampling. 
+
+    Returns : 
+        The samples and log densities. 
+    """
+
     keys = jax.random.split(key,num_chains)
 
     return jax.vmap(lambda t,k: mcmc(f,M,Madapt,t,adaptive,k,cov_matrix))(theta0,keys)
@@ -47,6 +75,28 @@ def mcmc(
     key,
     cov_matrix,
 ):
+    """
+    MCMC Metropolis-Hastings sampler. 
+
+    Parameters : 
+        f : 
+            The log-density and its gradient. 
+        M : 
+            The number of post-adaptation iterations. 
+        Madapt : 
+            The number of adaptation iterations. 
+        theta0 : 
+            The initial state of the chain. 
+        adaptive : 
+            Boolean flag to enable covariance estimation. 
+        key : 
+            The jax random key to use in simulation.
+        cov_matrix : 
+            The base covariance matrix to use in sampling. 
+
+    Returns : 
+        The samples and log densities. 
+    """
 
     def one_step(state, m):
         current_theta, current_cov, current_mu, current_key = state

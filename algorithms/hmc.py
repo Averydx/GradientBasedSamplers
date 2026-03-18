@@ -7,10 +7,12 @@ from functools import partial
 
 
 def kinetic_energy(r, mass_matrix):
+    """Computes the kinetic energy."""
     return 1 / 2 * r @ jnp.linalg.pinv(mass_matrix) @ r.T
 
 
 def hmc_step(thetam, f, *, key, mass_matrix, L, epsilon):
+    """Performs a single step of hmc."""
     momenta_key, key = jax.random.split(key)
 
     # Resample momenta
@@ -49,6 +51,32 @@ def hmc_step(thetam, f, *, key, mass_matrix, L, epsilon):
 
 
 def multi_chain_hmc(f, M, Madapt, theta0, key, mass_matrix, epsilon, L, num_chains):
+    """
+    Parallelizes the HMC sampler across multiple chains. 
+
+    Parameters : 
+        f : 
+            The log-density and its gradient. 
+        M : 
+            The number of post-adaptation iterations. 
+        Madapt : 
+            The number of adaptation iterations. 
+        theta0 : 
+            The initial state of the chain. 
+        key : 
+            The jax random key to use in simulation.
+        mass_matrix : 
+            The mass matrix to use in sampling. 
+        epsilon : 
+            The integration step size. 
+        L : 
+            The number of leapfrog steps. 
+        num_chains : 
+            The number of parallel chains to run. 
+
+    Returns : 
+        The samples and log densities. 
+    """
 
     keys = jax.random.split(key, num_chains)
 
@@ -67,6 +95,31 @@ def hmc(
     epsilon,
     L,
 ):
+    """
+
+    HMC sampler. 
+
+    Parameters : 
+        f : 
+            The log-density and its gradient. 
+        M : 
+            The number of post-adaptation iterations. 
+        Madapt : 
+            The number of adaptation iterations. 
+        theta0 : 
+            The initial state of the chain. 
+        key : 
+            The jax random key to use in simulation.
+        mass_matrix : 
+            The mass matrix to use in sampling. 
+        epsilon : 
+            The integration step size. 
+        L : 
+            The number of leapfrog steps. 
+
+    Returns : 
+        The samples and log densities. 
+    """
 
     def one_step(state, _):
         current_theta, current_key = state
