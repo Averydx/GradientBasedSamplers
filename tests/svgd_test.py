@@ -18,7 +18,7 @@ def RBF_Kernel(x,x_prime,bandwidth):
     sq_dist = jnp.sum((x-x_prime)**2)
     return jnp.exp(-bandwidth * sq_dist)
 
-num_particles = 10000
+num_particles = 100
 iterations = 1000
 D = 2
 step_size = 0.01

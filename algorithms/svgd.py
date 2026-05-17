@@ -1,4 +1,4 @@
-"""Methods for the implementation of Stein Variational Gradient Descent"""
+"""Implementation of Stein Variational Gradient Descent."""
 
 import jax.numpy as jnp
 import jax

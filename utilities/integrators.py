@@ -1,15 +1,18 @@
+"""Integrators for inference algorithms."""
+
 import jax.numpy as jnp
 import jax
-from typing import Callable,Tuple
+from typing import Callable, Tuple
 from functools import partial
 
-@partial(jax.jit,static_argnums = (4,))
+
+@partial(jax.jit, static_argnums=(4,))
 def leapfrog(
     theta: jnp.array,
     r: jnp.array,
     grad: jnp.array,
     epsilon: jnp.float64,
-    f: Callable[[jnp.array], Tuple[jnp.array,jnp.array]],
+    f: Callable[[jnp.array], Tuple[jnp.array, jnp.array]],
 ):
     """Perform a leapfrog step in phase space."""
 
@@ -26,4 +29,6 @@ def leapfrog(
     rprime = rprime + 0.5 * epsilon * gradprime
 
     return thetaprime, rprime, gradprime, logpprime
+
+
 

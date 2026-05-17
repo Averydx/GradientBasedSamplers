@@ -1,8 +1,10 @@
+"""Implementation of Hamiltonian Monte Carlo"""
+
 import jax
 import jax.numpy as jnp
 
-from utilities.leapfrog import leapfrog
-from utilities.helpers import find_reasonable_epsilon
+from utilities.integrators import leapfrog
+from utilities.helpers import find_reasonable_epsilon,cov_update
 from functools import partial
 
 
@@ -121,23 +123,38 @@ def hmc(
         The samples and log densities. 
     """
 
-    def one_step(state, _):
-        current_theta, current_key = state
+    def one_step(state, m):
+        current_theta,current_mu,current_cov, current_key = state
         step_key, next_key = jax.random.split(current_key)
 
         theta_new, logp_new = hmc_step(
             current_theta,
             f,
             key=step_key,
-            mass_matrix=mass_matrix,
+            mass_matrix=jnp.linalg.pinv(current_cov),
             L=L,
             epsilon=epsilon,
         )
 
-        return (theta_new, next_key), (theta_new, logp_new)
+        def do_update(args):
+            c_mu,c_cov, t_new, iter = args
+            return cov_update(c_cov, c_mu, t_new, iter, Madapt)
+        
+        def no_update(args):
+            c_mu, c_cov, _, _ = args
+            return c_mu,c_cov
+
+        next_mu, next_cov = jax.lax.cond(
+            (m > Madapt),
+            do_update,
+            no_update,
+            (current_mu,current_cov,theta_new,m)
+        )
+
+        return (theta_new, next_mu,next_cov, next_key), (theta_new, logp_new)
 
     _, (samples, logps) = jax.lax.scan(
-        one_step, (theta0, key), jnp.arange(0, M + Madapt)
+        one_step, (theta0, jnp.zeros_like(theta0),mass_matrix, key), jnp.arange(0, M + Madapt)
     )
 
     return samples[Madapt:, :], logps[Madapt:]

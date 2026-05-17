@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 import jax
-from utilities.leapfrog import leapfrog
+from utilities.integrators import leapfrog
 
 
 @jax.jit
@@ -253,7 +253,7 @@ def cov_update(cov, mu, theta_val, iteration, burn_in):
         The number of burn_in iterations.
     """
 
-    g = (iteration - burn_in + 1) ** (-0.4)
+    g = (iteration - burn_in + 1) ** (-0.6)
     mu = (1.0 - g) * mu + g * theta_val
     m_theta = theta_val - mu
 

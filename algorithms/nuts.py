@@ -1,7 +1,9 @@
+"""Implementation of the No U Turn Sampler"""
+
 import jax
 import jax.numpy as jnp
 
-from utilities.helpers import build_tree, stop_criterion, find_reasonable_epsilon
+from utilities.helpers import build_tree, stop_criterion, find_reasonable_epsilon,cov_update
 
 
 def nuts(
@@ -72,11 +74,19 @@ def nuts(
     epsilonbar = 1.0 if dual_averaging else epsilon
     Hbar = 1.0
 
+    running_mean = jnp.zeros(D,dtype=jnp.float32)
+    running_cov = jnp.eye(D)
+
     for m in range(1, M + Madapt):
+
+        # #Adaptively compute the mass matrix
+        # if m > Madapt: 
+        #     running_mean,running_cov = cov_update(running_cov,running_mean,samples[0,m-1,:],m,Madapt)
+
         # print(f"Iteration: {m} w/ epsilon {epsilon}",end = '\r')
         momenta_key, key = jax.random.split(key)
         # Resample momenta
-        r0 = jax.random.normal(momenta_key, D)
+        r0 = jax.random.multivariate_normal(key = momenta_key,mean = jnp.zeros(D), cov = jnp.linalg.pinv(running_cov))
 
         # joint lnp of theta and momentum r
         joint = logp - 0.5 * jnp.dot(r0, r0.T)

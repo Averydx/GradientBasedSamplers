@@ -10,13 +10,13 @@ from utilities.helpers import (
     effective_sample_size,
 )
 from algorithms.mcmc import multi_chain_mcmc
-from utilities.test_distributions import neals_funnel
+from utilities.test_distributions import rosenbrock
 
-log_prob = neals_funnel
+log_prob = rosenbrock
 
-D = 20
-M = 10_000
-Madapt = 100
+D = 4
+M = 100_000
+burnin = 10_000
 num_chains = 10
 key = jax.random.key(0)
 init_key, key = jax.random.split(key)
@@ -28,11 +28,11 @@ t0 = perf_counter()
 samples, lnprob = multi_chain_mcmc(
     log_prob,
     M,
-    Madapt,
+    burnin,
     theta0,
     key=mcmc_key,
     adaptive=True,
-    cov_matrix=jnp.eye(D),
+    cov_matrix=1.0 * jnp.eye(D),
     num_chains=num_chains,
 )
 t1 = perf_counter()

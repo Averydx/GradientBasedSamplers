@@ -24,7 +24,7 @@ theta0 = jax.random.normal(init_key, D)
 
 nuts_key, key = jax.random.split(key)
 t0 = perf_counter()
-samples, lnprob = nuts(func, M, Madapt, theta0, key=nuts_key,max_depth=10)
+samples, lnprob = nuts(func, M, Madapt, theta0, key=nuts_key,max_depth=10,epsilon = 0.01)
 t1 = perf_counter()
 print(f"Runtime: {t1 - t0} seconds")
 print(f"Effective sample size: {effective_sample_size(samples)}")
