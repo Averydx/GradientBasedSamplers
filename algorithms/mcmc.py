@@ -1,10 +1,11 @@
-"""Implementation of the Metropolis Algorithm with Adaptation. """
+"""Implementation of the Metropolis Algorithm with Adaptation."""
 
 import jax
 import jax.numpy as jnp
 
 from utilities.helpers import cov_update
 from functools import partial
+
 
 def mcmc_step(theta_prev, logp_prev, f, key, cov_matrix):
     """Performs a single step of MCMC"""
@@ -14,7 +15,8 @@ def mcmc_step(theta_prev, logp_prev, f, key, cov_matrix):
         prop_key, theta_prev, (2.38**2 / len(theta_prev)) * cov_matrix
     )
 
-    LL_new = f(theta_prop)
+    ll_key, key = jax.random.split(key)
+    LL_new = f(theta_prop, ll_key)
     LL_old = logp_prev
     alpha = LL_new - LL_old
 
@@ -27,46 +29,38 @@ def mcmc_step(theta_prev, logp_prev, f, key, cov_matrix):
     return new_theta, new_logp
 
 
-def multi_chain_mcmc(
-    f,
-    M,
-    burnin,
-    theta0,
-    adaptive,
-    key,
-    cov_matrix,
-    num_chains):
-
+def multi_chain_mcmc(f, M, burnin, theta0, adaptive, key, cov_matrix, num_chains):
     """
 
-    Parallelizes the MCMC sampler across multiple chains. 
+    Parallelizes the MCMC sampler across multiple chains.
 
-    Parameters : 
-        f : 
-            The log-density and its gradient. 
-        M : 
-            The number of post-adaptation iterations. 
-        burnin : 
-            The number of adaptation iterations. 
-        theta0 : 
-            The initial state of the chain. 
-        adaptive : 
-            Boolean flag to enable covariance estimation. 
-        key : 
+    Parameters :
+        f :
+            The log-density and its gradient.
+        M :
+            The number of post-adaptation iterations.
+        burnin :
+            The number of adaptation iterations.
+        theta0 :
+            The initial state of the chain.
+        adaptive :
+            Boolean flag to enable covariance estimation.
+        key :
             The jax random key to use in simulation.
-        cov_matrix : 
-            The base covariance matrix to use in sampling. 
-        num_chains : 
-            The number of parallel chains to use in sampling. 
+        cov_matrix :
+            The base covariance matrix to use in sampling.
+        num_chains :
+            The number of parallel chains to use in sampling.
 
-    Returns : 
-        The samples and log densities. 
+    Returns :
+        The samples and log densities.
     """
 
-    keys = jax.random.split(key,num_chains)
+    keys = jax.random.split(key, num_chains)
 
-    return jax.vmap(lambda t,k: mcmc(f,M,burnin,t,adaptive,k,cov_matrix))(theta0,keys)
-
+    return jax.vmap(lambda t, k: mcmc(f, M, burnin, t, adaptive, k, cov_matrix))(
+        theta0, keys
+    )
 
 
 def mcmc(
@@ -126,9 +120,10 @@ def mcmc(
 
         return (theta_new, logp_new, next_cov, next_mu, next_key), (theta_new, logp_new)
 
+    ll_init_key,key = jax.random.split(key)
     _, (samples, logps) = jax.lax.scan(
         one_step,
-        (theta0,f(theta0), cov_matrix, jnp.zeros_like(theta0), key),
+        (theta0, f(theta0,ll_init_key), cov_matrix, jnp.zeros_like(theta0), key),
         jnp.arange(0, M + burnin),
     )
 

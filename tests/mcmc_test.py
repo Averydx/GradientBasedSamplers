@@ -12,12 +12,13 @@ from utilities.helpers import (
 from algorithms.mcmc import multi_chain_mcmc
 from utilities.test_distributions import rosenbrock
 
-log_prob = rosenbrock
+def log_prob(x, key):
+    return rosenbrock(x)
 
 D = 4
 M = 100_000
 burnin = 10_000
-num_chains = 10
+num_chains = 100
 key = jax.random.key(0)
 init_key, key = jax.random.split(key)
 
