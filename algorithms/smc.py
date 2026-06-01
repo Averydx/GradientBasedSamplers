@@ -1,19 +1,21 @@
 import jax.numpy as jnp
 import jax
 
-def multinomial_resampling(log_weights,key): 
+
+def multinomial_resampling(log_weights, key):
     num_particles = log_weights.shape[0]
     weights = jnp.exp(log_weights - log_weights.max())
     indices = jax.random.choice(
-    key,
-    jnp.arange(0, num_particles),
-    p=(weights / jnp.sum(weights)).flatten(),
-    shape=(num_particles,),
-)
-    
-    return indices,weights
+        key,
+        jnp.arange(0, num_particles),
+        p=(weights / jnp.sum(weights)).flatten(),
+        shape=(num_particles,),
+    )
 
-def systematic_resampling(log_weights,key):
+    return indices, weights
+
+
+def systematic_resampling(log_weights, key):
 
     num_particles = log_weights.shape[0]
     weights = jnp.exp(log_weights - log_weights.max())
@@ -29,9 +31,10 @@ def systematic_resampling(log_weights,key):
 
     pointers = u + jnp.arange(num_particles) / num_particles
 
-    indices = jnp.searchsorted(cdf, pointers, side = 'left')
+    indices = jnp.searchsorted(cdf, pointers, side="left")
 
-    return indices,weights
+    return indices, weights
+
 
 def particle_filter(
     model, observations, initial_particles, key, likelihood, theta, t_range
@@ -78,10 +81,10 @@ def particle_filter(
             prev_particles, theta, forecast_keys, t_range
         )[:, -1, :]
 
-        log_weights = likelihood(forecast_particles, observations[i])
+        log_weights = likelihood(forecast_particles, observations[i], theta)
 
         resampling_key, next_key = jax.random.split(next_key)
-        indices,weights = systematic_resampling(log_weights,resampling_key)
+        indices, weights = systematic_resampling(log_weights, resampling_key)
         resampled_particles = forecast_particles[indices]
 
         return (resampled_particles, next_key), (resampled_particles, weights)

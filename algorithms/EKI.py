@@ -129,29 +129,8 @@ def ALDI(
             predicted_observations, axis=0
         )
 
-        cross_cov = (
-            1
-            / (ensemble_size - 1)
-            * jnp.dot(ensemble_anomalies.T, predicted_obs_anomalies)
-        )
-
-        predicted_obs_cov = (
-            1
-            / (ensemble_size - 1)
-            * jnp.dot(predicted_obs_anomalies.T, predicted_obs_anomalies)
-        )
-
-        predicted_obs_cov = data_localization_kernel(predicted_obs_cov)
-
-        S = jnp.linalg.pinv(observation_covariance + time_step * predicted_obs_cov)
-
-        posterior_ensemble = (
-            ensemble
-            + time_step
-            * jnp.dot(
-                jnp.dot(cross_cov, S), (observations - predicted_observations).T
-            ).T
-        )
+        def member_update(member_to_update,members): 
+            b = -time_step/ensemble_size * jnp.sum(jnp.dot(predicted_obs_anomalies,))
 
         return (posterior_ensemble, next_key), posterior_ensemble
 
