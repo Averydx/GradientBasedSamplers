@@ -10,13 +10,13 @@ from utilities.helpers import (
     effective_sample_size,
 )
 from algorithms.hmc import multi_chain_hmc
-from utilities.test_distributions import neals_funnel
+from utilities.test_distributions import rosenbrock
 
-log_prob = neals_funnel
+log_prob = rosenbrock
 
 func = jax.jit(jax.value_and_grad(log_prob))
 
-D = 20
+D = 4
 M = 10_000
 Madapt = 1000
 num_chains = 10
@@ -33,8 +33,8 @@ samples, lnprob = multi_chain_hmc(
     Madapt,
     theta0,
     key=hmc_key,
-    epsilon=0.005,
-    L=100,
+    epsilon=0.01,
+    L=50,
     mass_matrix=jnp.eye(D),
     num_chains=num_chains,
 )

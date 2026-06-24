@@ -39,6 +39,7 @@ def EnsembleKalmanInversion(
     L = jnp.linalg.cholesky(observation_covariance)
 
     def step(state, iteration):
+
         ensemble, prev_key = state
 
         obs_key, next_key = jax.random.split(prev_key)

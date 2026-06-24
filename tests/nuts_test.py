@@ -9,13 +9,13 @@ from utilities.helpers import (
     effective_sample_size,
 )
 from algorithms.nuts import nuts
-from utilities.test_distributions import neals_funnel
+from utilities.test_distributions import rosenbrock
 
 
-func = jax.jit(jax.value_and_grad(neals_funnel))
+func = jax.jit(jax.value_and_grad(rosenbrock))
 
-D = 2
-M = 1000
+D = 20
+M = 100_000
 Madapt = 200
 key = jax.random.key(0)
 init_key, key = jax.random.split(key)

@@ -9,10 +9,11 @@ url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
 name = "gradient_based_samplers"
 version = "0.1.0"
 dependencies = [
-    "jax[cpu]",
+    "jax[cpu,cuda12]",
     "matplotlib",
     "diffrax",
     "seaborn>=0.13.2",
+    "optimistix>=0.1.0",
 ]
 
 [tool.setuptools]

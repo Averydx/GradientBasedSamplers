@@ -4,15 +4,13 @@ import jax
 import jax.numpy as jnp
 
 from utilities.helpers import cov_update
-from functools import partial
-
 
 def mcmc_step(theta_prev, logp_prev, f, key, cov_matrix):
     """Performs a single step of MCMC"""
 
     prop_key, key = jax.random.split(key)
     theta_prop = jax.random.multivariate_normal(
-        prop_key, theta_prev, (2.38**2 / len(theta_prev)) * cov_matrix
+        prop_key, theta_prev, (2.38**2 / theta_prev.shape[0]) * cov_matrix
     )
 
     ll_key, key = jax.random.split(key)
@@ -120,10 +118,10 @@ def mcmc(
 
         return (theta_new, logp_new, next_cov, next_mu, next_key), (theta_new, logp_new)
 
-    ll_init_key,key = jax.random.split(key)
+    ll_init_key, key = jax.random.split(key)
     _, (samples, logps) = jax.lax.scan(
         one_step,
-        (theta0, f(theta0,ll_init_key), cov_matrix, jnp.zeros_like(theta0), key),
+        (theta0, f(theta0, ll_init_key), cov_matrix, jnp.zeros_like(theta0), key),
         jnp.arange(0, M + burnin),
     )
 
