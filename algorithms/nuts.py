@@ -183,7 +183,7 @@ def nuts(
         else:
             epsilon = epsilonbar
 
-        print(f"Iteration: {m}, tree depth: {j:02d}", end="\r")
+        # print(f"Iteration: {m}, tree depth: {j:02d}", end="\r")
 
     samples = samples[:, Madapt:, :]
     lnprob = lnprob[:, Madapt:]

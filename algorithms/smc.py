@@ -2,8 +2,11 @@ import jax.numpy as jnp
 import jax
 from algorithms.mcmc import mcmc_step
 
+
 def mcmc_kernel(f_t1, k, particles, log_weights, key):
-    cov_matrix = jnp.cov(particles.T, aweights=jnp.exp(log_weights))
+    cov_matrix = jnp.cov(particles.T, aweights=jnp.exp(log_weights)) + 1e-3 * jnp.eye(
+        particles.shape[1]
+    )
 
     def mcmc_step_lax(state, iter):
         particles, logf_t1, iter_key = state
@@ -13,18 +16,21 @@ def mcmc_kernel(f_t1, k, particles, log_weights, key):
             particles, logf_t1, f_t1, iter_keys, cov_matrix
         )
 
-        return (new_particles, new_logf_t1, next_key), new_particles
+        return (new_particles, new_logf_t1, next_key), (
+            new_particles,
+            new_logf_t1 != logf_t1,
+        )
 
     key, eval_key = jax.random.split(key)
     eval_keys = jax.random.split(eval_key, len(particles))
     logf_t1_prev = jax.vmap(f_t1, in_axes=(0, 0))(particles, eval_keys)
     key, loop_key = jax.random.split(key)
-    final_state, particle_history = jax.lax.scan(
+    final_state, (particle_history, accept_history) = jax.lax.scan(
         mcmc_step_lax, (particles, logf_t1_prev, loop_key), xs=jnp.arange(k)
     )
     final_particles, _, _ = final_state
 
-    return final_particles
+    return final_particles, accept_history
 
 
 def multinomial_resampling(log_weights, key):
@@ -83,7 +89,17 @@ def ibis(f, observations, k, particles0, key):
             indices, _ = systematic_resampling(log_weights, resampling_key)
             log_weights = -jnp.log(num_particles) * jnp.ones(num_particles)
             particles = particles[indices]
-            particles = mcmc_kernel(f_t, k, particles, log_weights, kernel_key)
+            particles, accept_history = mcmc_kernel(
+                f_t1, k, particles, log_weights, kernel_key
+            )
+
+            # avg_acceptance_rate = jnp.mean(jnp.sum(accept_history, axis=0)) / k
+
+            # jax.debug.print(
+            #     "average acceptance rate: {accept_val} over {k_val} iterations",
+            #     accept_val=avg_acceptance_rate,
+            #     k_val=k,
+            # )
 
             return particles, log_weights
 
@@ -93,7 +109,7 @@ def ibis(f, observations, k, particles0, key):
 
         ESS = 1 / jnp.sum(jnp.exp(prev_log_weights) ** 2)
 
-        jax.debug.print("Iteration {m_val} with ESS {ESS_val}", m_val=m, ESS_val=ESS)
+        # jax.debug.print("Iteration {m_val} with ESS {ESS_val}", m_val=m, ESS_val=ESS)
 
         branch_key, step_key = jax.random.split(step_key)
         particles, log_weights = jax.lax.cond(
@@ -116,11 +132,15 @@ def ibis(f, observations, k, particles0, key):
 
     smc_key, key = jax.random.split(key)
     log_weights = -jnp.log(num_particles) * jnp.ones(num_particles)
-    (particles, _, _), _ = jax.lax.scan(
+    (particles, log_weights, _), _ = jax.lax.scan(
         one_step,
         (particles0, log_weights, smc_key),
         xs=jnp.arange(len(observations)),
     )
+
+    final_resample_key, key = jax.random.split(key)
+    indices,_ = systematic_resampling(log_weights, final_resample_key)
+    particles = particles[indices]
 
     return particles
 
