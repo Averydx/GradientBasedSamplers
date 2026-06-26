@@ -94,8 +94,11 @@ def mcmc(
     """
 
     def one_step(state, m):
+
         current_theta, current_logp, current_cov, current_mu, current_key = state
         step_key, next_key = jax.random.split(current_key)
+
+        jax.debug.print("Iteration: {iter} w/ {val}",iter = m, val = current_theta)
 
         theta_new, logp_new = mcmc_step(
             current_theta, current_logp, f, key=step_key, cov_matrix=current_cov

@@ -93,13 +93,13 @@ def ibis(f, observations, k, particles0, key):
                 f_t1, k, particles, log_weights, kernel_key
             )
 
-            # avg_acceptance_rate = jnp.mean(jnp.sum(accept_history, axis=0)) / k
+            avg_acceptance_rate = jnp.mean(jnp.sum(accept_history, axis=0)) / k
 
-            # jax.debug.print(
-            #     "average acceptance rate: {accept_val} over {k_val} iterations",
-            #     accept_val=avg_acceptance_rate,
-            #     k_val=k,
-            # )
+            jax.debug.print(
+                "average acceptance rate: {accept_val} over {k_val} iterations",
+                accept_val=avg_acceptance_rate,
+                k_val=k,
+            )
 
             return particles, log_weights
 
@@ -109,7 +109,7 @@ def ibis(f, observations, k, particles0, key):
 
         ESS = 1 / jnp.sum(jnp.exp(prev_log_weights) ** 2)
 
-        # jax.debug.print("Iteration {m_val} with ESS {ESS_val}", m_val=m, ESS_val=ESS)
+        jax.debug.print("Iteration {m_val} with ESS {ESS_val}", m_val=m, ESS_val=ESS)
 
         branch_key, step_key = jax.random.split(step_key)
         particles, log_weights = jax.lax.cond(
@@ -193,10 +193,10 @@ def particle_filter(
         log_weights = likelihood(forecast_particles, observations[i], theta)
 
         resampling_key, next_key = jax.random.split(next_key)
-        indices, weights = systematic_resampling(log_weights, resampling_key)
+        indices, _ = systematic_resampling(log_weights, resampling_key)
         resampled_particles = forecast_particles[indices]
 
-        return (resampled_particles, next_key), (resampled_particles, weights)
+        return (resampled_particles, next_key), (resampled_particles, log_weights)
 
     final_particles, traj = jax.lax.scan(
         filter_step, (initial_particles, key), xs=jnp.arange(0, len(observations))
